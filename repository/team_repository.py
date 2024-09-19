@@ -6,9 +6,8 @@ from repository.team_players_repository import find_player_name_by_id
 def create_new_team(team_name, players_with_positions):
     with db_connection() as cursor:
 
-
         cursor.execute('''
-                INSERT INTO teams (team_name) 
+                INSERT INTO teams (team_name)
                 VALUES (%s) RETURNING id
             ''', (team_name,))
 
@@ -20,7 +19,7 @@ def create_new_team(team_name, players_with_positions):
 
         for player in players_with_positions:
             cursor.execute('''
-                    INSERT INTO team_players (team_id, player_id, player_name, player_position) 
+                    INSERT INTO team_players (team_id, player_id, player_name, player_position)
                     VALUES (%s, %s, %s, %s)
                 ''', (team_id, player.player_id, player.player_name, player.player_position))
 

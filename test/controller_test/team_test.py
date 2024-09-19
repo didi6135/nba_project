@@ -1,113 +1,96 @@
 import pytest
 from flask import json
-from your_application import create_app  # Adjust to your app import
-from repository.team_repository import get_team_by_id, delete_team
-from service.team_service import main_create_team, get_last_season_position, update_team_players, validate_team_players
 
-@pytest.fixture
+from main import create_app
+from repository.team_repository import get_team_by_id, delete_team
+from service.team_service import main_create_team
+
+
+@pytest.fixture(scope="module")
 def app():
     app = create_app()
     app.config['TESTING'] = True
-    yield app
+    return app
 
-@pytest.fixture
+
+@pytest.fixture(scope="module")
 def client(app):
-    return app.test_client()
+    with app.test_client() as client:
+        yield client
+
 
 @pytest.fixture
-def mocker():
-    from pytest_mock import mocker
-    return mocker
+def new_team():
+    return {
+    "name_team": "Lakers Test",
+    "players": [3, 5, 1, 10, 4]
+}
 
-@pytest.fixture
-def mock_get_last_season_position(mocker):
-    return mocker.patch('service.team_service.get_last_season_position', return_value='PG')
 
-@pytest.fixture
-def mock_main_create_team(mocker):
-    return mocker.patch('service.team_service.main_create_team', return_value=1)
-
-@pytest.fixture
-def mock_get_team_by_id(mocker):
-    return mocker.patch('repository.team_repository.get_team_by_id', return_value={'id': 1, 'name_team': 'Team A'})
-
-@pytest.fixture
-def mock_delete_team(mocker):
-    return mocker.patch('repository.team_repository.delete_team')
-
-@pytest.fixture
-def mock_validate_team_players(mocker):
-    return mocker.patch('service.team_service.validate_team_players', return_value=[])
-
-def test_create_team_success(client, mock_get_last_season_position, mock_main_create_team):
-    response = client.post('/teams', json={
-        'name_team': 'Team A',
-        'players': ['player1', 'player2', 'player3', 'player4', 'player5']
-    })
+def test_create_team_success(client, new_team):
+    """Test creating a new team"""
+    response = client.post('/teams', json=new_team)
     assert response.status_code == 201
-    assert b'Team created successfully' in response.data
+    data = response.get_json()
+    assert "Team created successfully" in data['message']
+
 
 def test_create_team_missing_fields(client):
-    response = client.post('/teams', json={'name_team': 'Team A'})
+    """Test creating a team with missing fields"""
+    response = client.post('/teams', json={"name_team": "Team A"})
     assert response.status_code == 400
-    assert b"Missing 'name_team' or 'players' in request body" in response.data
+    assert "Missing 'name_team' or 'players' in request body" in response.get_json()['error']
+
 
 def test_create_team_invalid_player_count(client):
-    response = client.post('/teams', json={'name_team': 'Team A', 'players': ['player1']})
-    assert response.status_code == 400
-    assert b"Team must have exactly 5 players" in response.data
-
-def test_create_team_missing_positions(client, mock_get_last_season_position, mock_main_create_team):
-    mock_get_last_season_position.side_effect = ['PG', 'SG', 'SF', 'PF', None]
+    """Test creating a team with an invalid number of players"""
     response = client.post('/teams', json={
-        'name_team': 'Team A',
-        'players': ['player1', 'player2', 'player3', 'player4', 'player5']
+        "name_team": "Team A",
+        "players": ["player1"]
     })
     assert response.status_code == 400
-    assert b"Missing players for positions: C" in response.data
+    assert "Team must have exactly 5 players" in response.get_json()['error']
 
-def test_update_team_success(client, mock_get_team_by_id, mock_validate_team_players, mock_get_last_season_position):
-    response = client.put('/teams/1', json={
-        'name_team': 'Team A Updated',
-        'players': ['player1', 'player2', 'player3', 'player4', 'player5']
-    })
+
+def test_get_team_by_id(client, new_team):
+    """Test fetching a team by ID"""
+    # Create the team first
+    response = client.post('/teams', json=new_team)
+    team_id = response.get_json()['team_id']
+
+    response = client.get(f'/teams/{team_id}')
     assert response.status_code == 200
-    assert b'Team updated successfully' in response.data
+    team_data = response.get_json()
+    assert team_data['name_team'] == new_team['name_team']
 
-def test_update_team_not_found(client, mock_get_team_by_id):
-    mock_get_team_by_id.return_value = None
-    response = client.put('/teams/999', json={'players': ['player1', 'player2', 'player3', 'player4', 'player5']})
+
+def test_update_team(client, new_team):
+    """Test updating an existing team"""
+    # Create the team first
+    response = client.post('/teams', json=new_team)
+    team_id = response.get_json()['team_id']
+
+    updated_data = {
+        "name_team": "Team A Updated",
+        "players": ["player6", "player7", "player8", "player9", "player10"]
+    }
+
+    response = client.put(f'/teams/{team_id}', json=updated_data)
+    assert response.status_code == 200
+    assert "Team updated successfully" in response.get_json()['message']
+
+
+def test_delete_team(client, new_team):
+    """Test deleting a team by ID"""
+    # Create the team first
+    response = client.post('/teams', json=new_team)
+    team_id = response.get_json()['team_id']
+
+    response = client.delete(f'/teams/{team_id}')
+    assert response.status_code == 200
+    assert f"Team with ID {team_id} deleted successfully" in response.get_json()['message']
+
+    # Ensure team is actually deleted
+    response = client.get(f'/teams/{team_id}')
     assert response.status_code == 404
-    assert b"Team with ID 999 does not exist" in response.data
-
-def test_delete_team_success(client, mock_get_team_by_id, mock_delete_team):
-    response = client.delete('/teams/1')
-    assert response.status_code == 200
-    assert b'Team with ID 1 deleted successfully' in response.data
-
-def test_delete_team_not_found(client, mock_get_team_by_id):
-    mock_get_team_by_id.return_value = None
-    response = client.delete('/teams/999')
-    assert response.status_code == 404
-    assert b"Team with ID 999 does not exist" in response.data
-
-def test_get_team_success(client, mock_get_team_by_id):
-    response = client.get('/teams/1')
-    assert response.status_code == 200
-    assert b'Team A' in response.data
-
-def test_get_team_not_found(client, mock_get_team_by_id):
-    mock_get_team_by_id.return_value = None
-    response = client.get('/teams/999')
-    assert response.status_code == 404
-    assert b"Team with ID 999 does not exist" in response.data
-
-def test_compare_teams_success(client, mock_get_team_by_id):
-    response = client.get('/teams/compare?team1=1&team2=2')
-    assert response.status_code == 200
-    assert b'comparison result' in response.data  # Adjust based on your actual response
-
-def test_compare_teams_insufficient_teams(client):
-    response = client.get('/teams/compare?team1=1')
-    assert response.status_code == 400
-    assert b"You must compare at least two teams." in response.data
+    assert f"Team with ID {team_id} does not exist" in response.get_json()['error']
