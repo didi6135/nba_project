@@ -1,5 +1,6 @@
 import pytest
 
+from models.teamPlayer import TeamPlayer
 from repository.database import create_tables, get_db_connection, drop_all_tables
 from repository.player_repository import insert_new_player
 from repository.team_repository import create_new_team, get_team_by_name, get_team_by_id, update_team, delete_team
@@ -16,14 +17,15 @@ def setup_database():
     cur.close()
     conn.close()
 
+
 def test_create_new_team(setup_database):
     """Test creating a new team"""
     player1_id = insert_new_player('Player One')
     player2_id = insert_new_player('Player Two')
-    players_with_positions = {
-        player1_id: 'PG',  # player_id as key
-        player2_id: 'SG'   # position as value
-    }
+    players_with_positions = [
+        TeamPlayer(player_id=player1_id, player_name='Player One', player_position='SG'),
+        TeamPlayer(player_id=player2_id, player_name='Player Two', player_position='C')
+    ]
 
     team_id = create_new_team('Team A', players_with_positions)
     assert team_id is not None
@@ -31,33 +33,36 @@ def test_create_new_team(setup_database):
     team = get_team_by_id(team_id)
     assert team['id'] == team_id
 
+
 def test_get_team_by_name(setup_database):
     """Test fetching a team by name"""
     player1_id = insert_new_player('Player One')
     player2_id = insert_new_player('Player Two')
-    players_with_positions = {
-        player1_id: 'PG',
-        player2_id: 'SG'
-    }
+    players_with_positions = [
+        TeamPlayer(player_id=player1_id, player_name='Player One', player_position='SG'),
+        TeamPlayer(player_id=player2_id, player_name='Player Two', player_position='C')
+    ]
 
     create_new_team('Team B', players_with_positions)
     team = get_team_by_name('Team B')
     assert team is not None
     assert team['id'] is not None
 
+
 def test_get_nonexistent_team_by_name(setup_database):
     """Test fetching a nonexistent team by name"""
     team = get_team_by_name('Nonexistent Team')
     assert team is None
 
+
 def test_update_team(setup_database):
     """Test updating an existing team"""
     player1_id = insert_new_player('Player One')
     player2_id = insert_new_player('Player Two')
-    players_with_positions = {
-        player1_id: 'PG',
-        player2_id: 'SG'
-    }
+    players_with_positions = [
+        TeamPlayer(player_id=player1_id, player_name='Player One', player_position='SG'),
+        TeamPlayer(player_id=player2_id, player_name='Player Two', player_position='C')
+    ]
 
     team_id = create_new_team('Team C', players_with_positions)
 
@@ -76,10 +81,10 @@ def test_delete_team(setup_database):
     """Test deleting a team"""
     player1_id = insert_new_player('Player One')
     player2_id = insert_new_player('Player Two')
-    players_with_positions = {
-        player1_id: 'PG',
-        player2_id: 'SG'
-    }
+    players_with_positions = [
+        TeamPlayer(player_id=player1_id, player_name='Player One', player_position='SG'),
+        TeamPlayer(player_id=player2_id, player_name='Player Two', player_position='C')
+    ]
 
     team_id = create_new_team('Team D', players_with_positions)
 

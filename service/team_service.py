@@ -21,8 +21,6 @@ def get_all_player_names(player_ids):
     return player_names
 
 
-
-
 def get_last_season_position(player_id):
     with db_connection() as cursor:
         cursor.execute('''

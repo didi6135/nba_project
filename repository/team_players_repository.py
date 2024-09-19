@@ -15,7 +15,6 @@ def find_team_player_by_id(player_id):
             return result
 
 
-
 def find_player_name_by_id(player_id):
     with db_connection() as cursor:
         cursor.execute('''
