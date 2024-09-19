@@ -4,7 +4,7 @@ from repository.database import db_connection
 def insert_new_player(player_name):
     with db_connection() as cursor:
         # Check if the player already exists
-        check_if_player_exist = get_player_name_by_id(player_name)
+        check_if_player_exist = get_player_id_by_name(player_name)
 
         if check_if_player_exist is None:
             # Insert player if not already in the database
@@ -27,7 +27,7 @@ def insert_new_player(player_name):
             return check_if_player_exist
 
 
-def get_player_name_by_id(player_name):
+def get_player_id_by_name(player_name):
     with db_connection() as cursor:
         cursor.execute('SELECT id FROM players WHERE player_name = %s', (player_name,))
         result = cursor.fetchone()
@@ -35,5 +35,17 @@ def get_player_name_by_id(player_name):
         if result:
             player_id = result['id']
             return player_id
+        else:
+            return None
+
+
+def get_player_name_by_id(player_id):
+    with db_connection() as cursor:
+        cursor.execute('SELECT player_name FROM players WHERE id = %s', (player_id,))
+        result = cursor.fetchone()
+
+        if result:
+            player_name = result['player_name']
+            return player_name
         else:
             return None

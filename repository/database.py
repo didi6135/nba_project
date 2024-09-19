@@ -57,6 +57,8 @@ def create_tables():
     CREATE TABLE IF NOT EXISTS team_players (
         team_id INT REFERENCES teams(id) ON DELETE CASCADE,
         player_id INT REFERENCES players(id) ON DELETE CASCADE,
+        player_name VARCHAR(50) NOT NULL,
+        player_position VARCHAR(50) NOT NULL, 
         PRIMARY KEY (team_id, player_id)  -- Prevent duplicate player in the same team
     );
     ''')
