@@ -54,13 +54,21 @@ def get_team_by_id(team_id):
 
 
 
-def update_team(players_with_positions, team_id):
+def update_team(players_with_positions, team_id, name_team=None):
     try:
         with db_connection() as cursor:
+            # If a new team name is provided, update the team's name
+            if name_team:
+                cursor.execute('''
+                    UPDATE teams SET team_name = %s WHERE id = %s
+                ''', (name_team, team_id))
+
+            # First, delete the existing players in the team
             cursor.execute('''
                 DELETE FROM team_players WHERE team_id = %s
             ''', (team_id,))
 
+            # Insert the new players and their positions
             for player_id, position in players_with_positions.items():
                 player_name = find_player_name_by_id(player_id)
                 if player_name is None:

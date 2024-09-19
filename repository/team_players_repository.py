@@ -12,8 +12,7 @@ def find_team_player_by_id(player_id):
 
         result = cursor.fetchone()
         if result:
-            return result  # מחזיר גם את שם השחקן
-    return None
+            return result
 
 
 

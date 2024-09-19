@@ -19,7 +19,6 @@ def create_app():
 
     if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         initialize_data()
-        print('---------------------- All data is set ---------------------- ')
         main()
 
     return app

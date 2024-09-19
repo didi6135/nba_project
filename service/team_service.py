@@ -8,37 +8,74 @@ from repository.team_players_repository import find_team_player_by_id
 from repository.team_repository import create_new_team, get_team_by_name, update_team
 
 
-# 1. find the players in the db
-def get_all_player_name(player_ids):
-    return pipe(
-        player_ids,
-        partial(map, get_player_name_by_id),
-        list
-    )
+REQUIRED_POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
+
+
+# Function to get all player names from the database in a single call
+def get_all_player_names(player_ids):
+    player_names = {}
+    for player_id in player_ids:
+        player_name = get_player_name_by_id(player_id)
+        if player_name:
+            player_names[player_id] = player_name
+    return player_names
 
 
 
-def main_create_team(team_name, data):
 
-    check_if_team_name_exist = get_team_by_name(team_name)
-    if check_if_team_name_exist is None:
-
-        team_players = pipe(
-            data['players'].items(),
-            partial(map, lambda p: TeamPlayer(
-                player_id=int(p[0]),
-                player_name=get_player_name_by_id(int(p[0])),
-                player_position=p[1]
-            )),
-            list
-        )
-
-        team_id = create_new_team(team_name, team_players)
-        return team_id
-    else:
+def get_last_season_position(player_id):
+    with db_connection() as cursor:
+        cursor.execute('''
+            SELECT position 
+            FROM player_seasons 
+            WHERE player_id = %s 
+            ORDER BY season DESC LIMIT 1;
+        ''', (player_id,))
+        result = cursor.fetchone()
+        if result:
+            return result['position']
         return None
 
 
+def main_create_team(team_name, data):
+    print(team_name)
+    print(data)
+    check_if_team_name_exist = get_team_by_name(team_name)
+    if check_if_team_name_exist is not None:
+        return None
+
+    player_ids = data.keys()
+
+    if len(player_ids) != len(REQUIRED_POSITIONS):
+        raise ValueError("Exactly 5 players are required to create a team.")
+
+    # Fetch all player names by player IDs
+    player_names = get_all_player_names(player_ids)
+
+    if len(player_names) != len(player_ids):
+        raise ValueError("One or more players could not be found in the database.")
+
+    # Map positions automatically
+    team_players = []
+    for i, player_id in enumerate(player_ids):
+        player_name = player_names.get(player_id)
+        if player_name:
+            team_players.append(TeamPlayer(
+                player_id=player_id,
+                player_name=player_name,
+                player_position=REQUIRED_POSITIONS[i]  # Assign position based on order
+            ))
+
+    # Validate that all required positions are covered
+    positions_in_team = [player.player_position for player in team_players]
+    missing_positions = [pos for pos in REQUIRED_POSITIONS if pos not in positions_in_team]
+
+    if missing_positions:
+        raise ValueError(f"Missing players for positions: {', '.join(missing_positions)}")
+
+    # Insert the team into the database
+    team_id = create_new_team(team_name, team_players)
+    return team_id
 
 
 # ------------------------------------------------------------
@@ -53,17 +90,24 @@ def validate_team_players(players_with_positions, team_id):
     )
 
     existing_players = [
-        player_id for player_id in check_players
-        if player_id is not None and player_id['team_id'] != team_id
+        player for player in check_players
+        if player is not None and player['team_id'] != team_id
     ]
+
     if existing_players:
-        return existing_players
+        formatted_existing_players = [
+            f"{player['player_name']} (Player ID: {player['player_id']}, Team ID: {player['team_id']})"
+            for player in existing_players
+        ]
+        return formatted_existing_players
+
     return None
 
 
 
-def update_team_players(team_id, players_with_positions):
-    update = update_team(players_with_positions, team_id)
+
+def update_team_players(team_id, players_with_positions, name_team=None):
+    update = update_team(players_with_positions, team_id, name_team)
     return update
 
 
@@ -141,3 +185,94 @@ def calculate_ppg_ratio(points, games):
 
 
 
+# ------------------------------------------------------------
+# ------------------ compare teams ----------------------
+# ------------------------------------------------------------
+
+def get_team_comparison_details(team_id):
+    with db_connection() as cursor:
+        cursor.execute('''
+            SELECT 
+                SUM(ps.points) as total_points, 
+                AVG(ps.two_percent) as avg_two_percent,
+                AVG(ps.three_percent) as avg_three_percent,
+                SUM(ps.assists) as total_assists,
+                SUM(ps.turnovers) as total_turnovers,
+                SUM(ps.points) / SUM(ps.games) as avg_ppg_ratio
+            FROM team_players tp
+            JOIN players p ON tp.player_id = p.id
+            JOIN player_seasons ps ON p.id = ps.player_id
+            WHERE tp.team_id = %s
+        ''', (team_id,))
+
+        result = cursor.fetchone()
+        if result:
+            atr = calculate_atr(result['total_assists'], result['total_turnovers'])
+            return {
+                "team_id": team_id,
+                "points": result['total_points'],
+                "twoPercent": result['avg_two_percent'],
+                "threePercent": result['avg_three_percent'],
+                "ATR": atr,
+                "PPG Ratio": result['avg_ppg_ratio']
+            }
+        return None
+
+
+
+
+def compare_teams(team_ids):
+    teams = []
+
+    for team_id in team_ids:
+        team_details = get_team_comparison_details(team_id)
+        if team_details:
+            teams.append(team_details)
+
+    sorted_teams = sorted(teams, key=lambda x: x['PPG Ratio'], reverse=True)
+
+    return sorted_teams
+
+# ------------------------------------------------------------
+# ------------------ compare regular teams ----------------------
+# ------------------------------------------------------------
+def get_team_stats_by_name(team_name):
+    with db_connection() as cursor:
+        cursor.execute('''
+                    SELECT 
+                        SUM(ps.points) as total_points, 
+                        AVG(ps.two_percent) as avg_two_percent,
+                        AVG(ps.three_percent) as avg_three_percent,
+                        SUM(ps.assists) as total_assists,
+                        SUM(ps.turnovers) as total_turnovers,
+                        SUM(ps.points) / SUM(ps.games) as avg_ppg_ratio
+                    FROM player_seasons ps
+                    WHERE ps.team = %s
+                ''', (team_name,))
+
+        result = cursor.fetchone()
+        if result:
+            # חישוב ATR עבור הקבוצה
+            atr = calculate_atr(result['total_assists'], result['total_turnovers'])
+            return {
+                "team": team_name,
+                "points": result['total_points'],
+                "twoPercent": result['avg_two_percent'],
+                "threePercent": result['avg_three_percent'],
+                "ATR": atr,
+                "PPG Ratio": result['avg_ppg_ratio']
+            }
+        return None
+
+
+def compare_teams_by_name(team_names):
+    teams = []
+
+    for team_name in team_names:
+        team_details = get_team_stats_by_name(team_name)
+        if team_details:
+            teams.append(team_details)
+
+    sorted_teams = sorted(teams, key=lambda x: x['PPG Ratio'], reverse=True)
+
+    return sorted_teams

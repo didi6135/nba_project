@@ -27,7 +27,7 @@ def create_player_season(player_data, player_id):
 
 
 def fetch_players_by_season(season):
-    nba_url = f'http://b8c40s8.143.198.70.30.sslip.io/api/PlayerDataTotals/query?season={season}&pageSize=10'
+    nba_url = f'http://b8c40s8.143.198.70.30.sslip.io/api/PlayerDataTotals/query?season={season}&pageSize=100'
     try:
         response = requests.get(nba_url)
         response.raise_for_status()
