@@ -32,9 +32,9 @@ def main():
     # show_summary(correct_count, total_time_taken, total_questions)
 
 if __name__ == '__main__':
-    create_tables()
-    # app = create_app()
-    # app.run(debug=True)
+    # create_tables()
+    app = create_app()
+    app.run(debug=True)
     # drop_all_tables()
 
 

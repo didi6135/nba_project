@@ -10,6 +10,7 @@ from repository.player_season_repository import insert_player_season
 def create_player_season(player_data, player_id):
     return PlayerSeason(
         player_id=player_id,
+        position=player_data.get('position', ''),
         season=player_data.get("season", ""),
         team=player_data.get("team", ""),
         points=player_data.get("points", 0),
@@ -17,7 +18,11 @@ def create_player_season(player_data, player_id):
         twoPercent=player_data.get("twoPercent", 0.0),
         threePercent=player_data.get("threePercent", 0.0),
         ATR=player_data.get("ATR", 0.0),
-        PPG_ratio=player_data.get("PPG_ratio", 0.0)
+        PPG_ratio=player_data.get("PPG_ratio", 0.0),
+        assists=player_data.get('assists', 0.0),
+        turnovers=player_data.get('turnovers', 0.0)
+
+
     )
 
 

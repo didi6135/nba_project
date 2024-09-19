@@ -27,6 +27,7 @@ def create_tables():
     CREATE TABLE IF NOT EXISTS player_seasons (
         id SERIAL PRIMARY KEY,
         player_id INT REFERENCES players(id) ON DELETE CASCADE,
+        position VARCHAR(50) NOT NULL, 
         season INT NOT NULL,
         team VARCHAR(50) NOT NULL, 
         points INTEGER NOT NULL,
@@ -35,6 +36,8 @@ def create_tables():
         three_percent FLOAT,
         atr FLOAT,  
         ppg_ratio FLOAT,  
+        assists FLOAT,
+        turnovers FLOAT,
         UNIQUE(player_id, season) 
     );
     ''')
